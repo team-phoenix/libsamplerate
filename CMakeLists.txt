@@ -1,6 +1,7 @@
 cmake_minimum_required(VERSION 3.1)
 project(LibSamplerate LANGUAGES C)
 
+set(samplerate_version 0.1.8)
 
 set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} ${PROJECT_SOURCE_DIR}/cmake)
 
@@ -11,8 +12,7 @@ set(SAMPLERATE_SRC
 	${PROJECT_SOURCE_DIR}/src/src_zoh.c)
 
 if(WIN32)
-	set(SAMPLERATE_SRC 
-		${SAMPLERATE_SRC}
+	list(APPEND SAMPLERATE_SRC
 		${PROJECT_SOURCE_DIR}/Win32/libsamplerate-0.def)
 endif()
 
@@ -94,16 +94,56 @@ else()
 	set(HAVE_SNDFILE 0)
 endif()
 
-configure_file(${PROJECT_SOURCE_DIR}/config.h.in ${CMAKE_CURRENT_BINARY_DIR}/config.h)
+configure_file(config.h.in config.h)
 
 add_library(samplerate ${SAMPLERATE_SRC})
 
 if(WIN32)
 	target_compile_definitions(samplerate PRIVATE "WIN32" "_USRDLL")
-	target_include_directories(samplerate PUBLIC ${PROJECT_SOURCE_DIR}/Win32)
+	target_include_directories(samplerate
+		PRIVATE ${PROJECT_SOURCE_DIR}/Win32
+	)
 endif()
 
-target_include_directories(samplerate PUBLIC
-	${PROJECT_SOURCE_DIR}/src
-	${CMAKE_CURRENT_BINARY_DIR})
+target_include_directories(samplerate 
+	PUBLIC
+		$<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}/include>  
+		$<INSTALL_INTERFACE:include>
+	PRIVATE
+		${CMAKE_CURRENT_BINARY_DIR}
+)
 
+install(TARGETS samplerate EXPORT samplerateTargets
+	LIBRARY DESTINATION lib
+	ARCHIVE DESTINATION lib
+	RUNTIME DESTINATION lib
+	INCLUDES DESTINATION include)
+
+install(DIRECTORY ${PROJECT_SOURCE_DIR}/include/ DESTINATION include
+	FILES_MATCHING PATTERN "*.h")
+
+include(CMakePackageConfigHelpers)
+
+write_basic_package_version_file(samplerateConfigVersion.cmake
+	VERSION ${samplerate_version}
+	COMPATIBILITY SameMajorVersion
+)
+
+install(EXPORT samplerateTargets
+	FILE samplerateTargets.cmake
+	NAMESPACE SRC::
+	DESTINATION lib/cmake/samplerate
+)
+
+configure_file(cmake/samplerateConfig.cmake
+	${CMAKE_CURRENT_BINARY_DIR}/samplerate/samplerateConfig.cmake
+	COPYONLY
+)
+
+install(
+	FILES 
+		cmake/samplerateConfig.cmake
+		${CMAKE_CURRENT_BINARY_DIR}/samplerateConfigVersion.cmake
+	DESTINATION 
+		lib/cmake/samplerate
+)
